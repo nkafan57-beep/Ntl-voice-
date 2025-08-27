@@ -1,18 +1,1 @@
-{
-  "name": "discord-bot",
-  "version": "1.0.0",
-  "description": "My Discord bot on Render",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "discord.js": "^14.21.0",
-    "dotenv": "^16.4.5",
-    "@discordjs/voice": "^0.14.0",
-    "ytdl-core": "^4.11.1"
-  }
-}
+{  "name": "your-package-name",  "version": "1.0.0",  "description": "Your package description",  "main": "index.js",  "scripts": {    "test": "echo 'Error: no test specified' && exit 1"  },  "dependencies": {    "discord.js": "^14.21.0",    "dotenv": "^16.4.5",    "@discordjs/voice": "^0.14.0",    "ytdl-core": "^4.11.1",    "@distube/ytdl-core": "^1.0.6"  } }
