@@ -1,7 +1,7 @@
 // تحميل المتغيرات من ملف .env
 require('dotenv').config();
 
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
 const { createAudioPlayer, createAudioResource, joinVoiceChannel, AudioPlayerStatus } = require('@discordjs/voice');
 const ytdl = require('ytdl-core');
 const path = require('path');
@@ -32,7 +32,7 @@ class Queue {
 
 function hasPermissions(member) {
     // صلاحيات المستخدم
-    return member.permissions.has('Administrator');
+    return member.permissions.has(PermissionsBitField.Flags.Administrator);
 }
 
 // تشغيل الأغنية التالية
@@ -115,6 +115,17 @@ client.on('messageCreate', async message => {
             if (!message.member.voice.channel) {
                 return message.reply('❌ **يجب أن تكون في قناة صوتية أولاً!**');
             }
+
+            const connection = joinVoiceChannel({
+                channelId: message.member.voice.channel.id,
+                guildId: message.guild.id,
+                adapterCreator: message.guild.voiceAdapterCreator
+            });
+
+            const serverQueue = musicQueue.get(message.guild.id) || new Queue();
+            musicQueue.set(message.guild.id, serverQueue);
+            connection.subscribe(serverQueue.player);
+
             message.reply('✅ **تم الانضمام إلى القناة الصوتية!**');
             break;
 
@@ -163,6 +174,8 @@ client.on('messageCreate', async message => {
                 message.reply('❌ **حدث خطأ أثناء معالجة رابط يوتيوب!**');
             }
             break;
+
+        // تقدر تضيف أوامر ثانية مثل -skip, -stop, -leave وهكذا هنا
     }
 });
 
