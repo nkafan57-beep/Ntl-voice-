@@ -30,7 +30,10 @@ app.get('/', (req, res) => {
 
 io.on('connection', (socket) => {
     socket.on('play', async (url) => {
-        if (!currentConnection || !currentPlayer) return;
+        if (!currentConnection || !currentPlayer) {
+            io.emit('status', '❌ يجب على البوت الانضمام للفويس أولاً (استخدم -join في الديسكورد)');
+            return;
+        }
         currentUrl = url;
         await playMusic(url);
         io.emit('status', '🎶 تم تشغيل الأغنية');
@@ -51,20 +54,37 @@ io.on('connection', (socket) => {
 
 async function playMusic(url) {
     if (!currentConnection || !currentPlayer) return;
-    const stream = ytdl(url, { filter: 'audioonly' });
-    const resource = createAudioResource(stream);
-    currentPlayer.play(resource);
+    try {
+        const stream = ytdl(url, {
+            filter: 'audioonly',
+            quality: 'highestaudio',
+            highWaterMark: 1 << 25
+        });
+        const resource = createAudioResource(stream, { inlineVolume: true });
+        resource.volume.setVolume(0.5);
+        currentPlayer.play(resource);
+    } catch (err) {
+        console.error('خطأ في تشغيل الصوت:', err);
+    }
 }
 
 function setupPlayerEvents() {
     if (!currentPlayer) return;
     currentPlayer.on(AudioPlayerStatus.Idle, async () => {
+        console.log('Player is idle.');
         if (isLooping && currentUrl) {
             await playMusic(currentUrl);
         }
     });
+    currentPlayer.on(AudioPlayerStatus.Playing, () => {
+        console.log('Player is playing.');
+    });
+    currentPlayer.on('error', error => {
+        console.error('Audio Player Error:', error);
+    });
 }
 
+// أمر الديسكورد للانضمام للفويس
 client.on('messageCreate', async message => {
     if (message.content.startsWith('-join')) {
         if (!message.member.voice.channel) {
