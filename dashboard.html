@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>تحكم بوت الديسكورد</title>
+</head>
+<body>
+  <h2>لوحة تحكم البوت الصوتي</h2>
+  <input type="text" id="yturl" placeholder="رابط يوتيوب">
+  <button onclick="play()">تشغيل</button>
+  <button onclick="stop()">إيقاف</button>
+  <button onclick="toggleLoop()">تكرار</button>
+  <p id="status"></p>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let isLooping = false;
+    function play() {
+      const url = document.getElementById('yturl').value;
+      socket.emit('play', url);
+    }
+    function stop() {
+      socket.emit('stop');
+    }
+    function toggleLoop() {
+      isLooping = !isLooping;
+      socket.emit('loop', isLooping);
+    }
+    socket.on('status', (msg) => {
+      document.getElementById('status').innerText = msg;
+    });
+  </script>
+</body>
+</html>
