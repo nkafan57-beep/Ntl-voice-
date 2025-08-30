@@ -1,112 +1,60 @@
-require('dotenv').config();
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
+require('dotenv').config(); // إذا احتجت دعم ملف .env محلياً
 const { Client, GatewayIntentBits } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, NoSubscriberBehavior } = require('@discordjs/voice');
 const ytdl = require('ytdl-core');
 
-const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildVoiceStates,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
-    ]
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+
+const PREFIX = "!";
+let connection = null;
+let player = null;
+
+client.on('ready', () => {
+    console.log(`Bot is logged in as ${client.user.tag}`);
 });
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+client.on('messageCreate', async (message) => {
+    if (message.author.bot) return;
+    if (!message.content.startsWith(PREFIX)) return;
 
-let currentPlayer = null;
-let currentConnection = null;
-let isLooping = false;
-let currentUrl = null;
+    const args = message.content.slice(PREFIX.length).trim().split(' ');
+    const command = args.shift().toLowerCase();
 
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/dashboard.html');
-});
-
-io.on('connection', (socket) => {
-    socket.on('play', async (url) => {
-        if (!currentConnection || !currentPlayer) {
-            io.emit('status', '❌ يجب على البوت الانضمام للفويس أولاً (استخدم -join في الديسكورد)');
-            return;
-        }
-        currentUrl = url;
-        await playMusic(url);
-        io.emit('status', '🎶 تم تشغيل الأغنية');
-    });
-
-    socket.on('stop', () => {
-        if (currentPlayer) {
-            currentPlayer.stop();
-            io.emit('status', '⏹️ تم إيقاف الأغنية');
-        }
-    });
-
-    socket.on('loop', (state) => {
-        isLooping = state;
-        io.emit('status', isLooping ? '🔁 تم تفعيل التكرار' : '⏹️ تم إيقاف التكرار');
-    });
-});
-
-async function playMusic(url) {
-    if (!currentConnection || !currentPlayer) return;
-    try {
-        const stream = ytdl(url, {
-            filter: 'audioonly',
-            quality: 'highestaudio',
-            highWaterMark: 1 << 25
-        });
-        const resource = createAudioResource(stream, { inlineVolume: true });
-        resource.volume.setVolume(0.5);
-        currentPlayer.play(resource);
-    } catch (err) {
-        console.error('خطأ في تشغيل الصوت:', err);
-    }
-}
-
-function setupPlayerEvents() {
-    if (!currentPlayer) return;
-    currentPlayer.on(AudioPlayerStatus.Idle, async () => {
-        console.log('Player is idle.');
-        if (isLooping && currentUrl) {
-            await playMusic(currentUrl);
-        }
-    });
-    currentPlayer.on(AudioPlayerStatus.Playing, () => {
-        console.log('Player is playing.');
-    });
-    currentPlayer.on('error', error => {
-        console.error('Audio Player Error:', error);
-    });
-}
-
-// أمر الديسكورد للانضمام للفويس
-client.on('messageCreate', async message => {
-    if (message.content.startsWith('-join')) {
+    if (command === "join") {
         if (!message.member.voice.channel) {
-            return message.reply('❌ يجب أن تكون في قناة صوتية أولاً!');
+            return message.reply("يجب أن تكون في قناة صوتية أولاً.");
         }
-
-        currentConnection = joinVoiceChannel({
+        connection = joinVoiceChannel({
             channelId: message.member.voice.channel.id,
             guildId: message.guild.id,
             adapterCreator: message.guild.voiceAdapterCreator,
         });
+        message.reply("تم الدخول إلى القناة الصوتية.");
+    }
 
-        currentPlayer = createAudioPlayer();
-        currentConnection.subscribe(currentPlayer);
-        setupPlayerEvents();
+    if (command === "play") {
+        if (!connection) return message.reply("يجب أن يدخل البوت إلى القناة الصوتية أولاً باستخدام أمر !join");
+        const url = args[0];
+        if (!url || !ytdl.validateURL(url)) {
+            return message.reply("يرجى وضع رابط فيديو يوتيوب صحيح.");
+        }
 
-        message.reply('✅ تم الانضمام للقناة الصوتية! تحكم بالبوت عبر الموقع.');
+        const stream = ytdl(url, { filter: 'audioonly' });
+        player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Pause } });
+        const resource = createAudioResource(stream);
+
+        player.play(resource);
+        connection.subscribe(player);
+
+        player.on(AudioPlayerStatus.Idle, () => {
+            connection.destroy();
+            connection = null;
+            player = null;
+        });
+
+        message.reply("تم تشغيل الفيديو الصوتي.");
     }
 });
 
+// استخدم المتغيّر من env
 client.login(process.env.DISCORD_TOKEN);
-
-server.listen(process.env.PORT || 3000, () => {
-    console.log('Dashboard on http://localhost:' + (process.env.PORT || 3000));
-});
