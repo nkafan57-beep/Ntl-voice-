@@ -1,13 +1,11 @@
-// المتطلبات
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const { Client, GatewayIntentBits } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, getVoiceConnection } = require('@discordjs/voice');
-const ytdl = require('@distube/ytdl-core');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
+const ytdl = require('ytdl-core');
 
-// إعداد ديسكورد بوت
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -17,7 +15,6 @@ const client = new Client({
     ]
 });
 
-// إعداد السيرفر والموقع
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
@@ -27,12 +24,10 @@ let currentConnection = null;
 let isLooping = false;
 let currentUrl = null;
 
-// صفحة تحكم بسيطة
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/dashboard.html');
 });
 
-// Socket.io للتحكم من الموقع
 io.on('connection', (socket) => {
     socket.on('play', async (url) => {
         if (!currentConnection || !currentPlayer) return;
@@ -54,7 +49,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// دالة تشغيل الموسيقى
 async function playMusic(url) {
     if (!currentConnection || !currentPlayer) return;
     const stream = ytdl(url, { filter: 'audioonly' });
@@ -62,7 +56,6 @@ async function playMusic(url) {
     currentPlayer.play(resource);
 }
 
-// مراقبة نهاية الأغنية للتكرار
 function setupPlayerEvents() {
     if (!currentPlayer) return;
     currentPlayer.on(AudioPlayerStatus.Idle, async () => {
@@ -72,7 +65,6 @@ function setupPlayerEvents() {
     });
 }
 
-// أوامر ديسكورد
 client.on('messageCreate', async message => {
     if (message.content.startsWith('-join')) {
         if (!message.member.voice.channel) {
@@ -93,10 +85,8 @@ client.on('messageCreate', async message => {
     }
 });
 
-// تسجيل الدخول للبوت
 client.login(process.env.DISCORD_TOKEN);
 
-// تشغيل الموقع على رندر أو محليًا
 server.listen(process.env.PORT || 3000, () => {
     console.log('Dashboard on http://localhost:' + (process.env.PORT || 3000));
 });
